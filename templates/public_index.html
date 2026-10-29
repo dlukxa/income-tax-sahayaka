@@ -396,20 +396,29 @@ textarea:focus, input:focus, select:focus {
 }
 
 .progress-track {
-  height: 8px;
-  background: #e9eef6;
+  height: 9px;
+  background: #e2e8f0;
   border-radius: 20px;
   overflow: hidden;
   margin: 18px 0 10px;
+  position: relative;
 }
 
 .progress-track span {
   display: block;
   height: 100%;
   width: 0;
-  background: var(--blue);
+  background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 40%, #60a5fa 70%, #1d4ed8 100%);
+  background-size: 200% 100%;
+  animation: progressShimmer 1.8s infinite linear;
   border-radius: 20px;
-  transition: width 0.2s;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.35);
+}
+
+@keyframes progressShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .progress-panel p {
@@ -418,11 +427,106 @@ textarea:focus, input:focus, select:focus {
   margin: 8px 0 0;
 }
 
+/* Live AI Loading Animation Widget */
+.progress-live-animation {
+  margin: 16px 0 14px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e8f2fe 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
+}
+
+.ai-pulse-ring {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #dbeafe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ai-pulse-ring::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid #3b82f6;
+  opacity: 0.6;
+  animation: radarPulse 1.6s infinite ease-out;
+}
+
+@keyframes radarPulse {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.spin-icon {
+  animation: spin 3s infinite linear;
+  color: #1d4ed8;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.live-anim-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.live-anim-text strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 750;
+  color: #1e3a8a;
+  letter-spacing: -0.01em;
+}
+
+.live-anim-text span {
+  display: block;
+  font-size: 12px;
+  color: #2563eb;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wave-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.wave-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563eb;
+  animation: dotWave 1.2s infinite ease-in-out both;
+}
+
+.wave-dots span:nth-child(1) { animation-delay: -0.32s; }
+.wave-dots span:nth-child(2) { animation-delay: -0.16s; }
+.wave-dots span:nth-child(3) { animation-delay: 0s; }
+
+@keyframes dotWave {
+  0%, 80%, 100% { transform: scale(0.4); opacity: 0.4; }
+  40% { transform: scale(1.2); opacity: 1; }
+}
+
 .progress-steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 14px;
 }
 
 .progress-step {
@@ -434,6 +538,7 @@ textarea:focus, input:focus, select:focus {
   display: flex;
   gap: 8px;
   align-items: center;
+  transition: all 0.2s ease;
 }
 
 .step-indicator {
@@ -445,15 +550,31 @@ textarea:focus, input:focus, select:focus {
   background: #eef2f8;
   color: #68778b;
   font-weight: 700;
+  transition: all 0.2s ease;
 }
 
 .progress-step.active {
-  border-color: #93b5ec;
-  background: #f1f6ff;
-  color: var(--navy);
+  border-color: #3b82f6;
+  background: #f0f7ff;
+  color: #1e3a8a;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  transform: translateY(-1px);
 }
 
-.progress-step.done .step-indicator, .progress-step.active .step-indicator {
+.progress-step.active .step-indicator {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+  animation: activeIndicatorPulse 1.4s infinite ease-in-out;
+}
+
+@keyframes activeIndicatorPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
+.progress-step.done .step-indicator {
   background: var(--blue);
   color: #ffffff;
 }
@@ -922,6 +1043,23 @@ footer p {
       <div class="progress-head"><div><span class="section-label">REQUEST STATUS</span><h2 id="progressTitle">Preparing your search</h2></div><strong id="progressPercent">0%</strong></div>
       <div class="progress-track"><span id="progressBar"></span></div>
       <p id="progressDetail">Validating your question.</p>
+      
+      <!-- Live AI Loading Animation Widget -->
+      <div class="progress-live-animation">
+        <div class="ai-pulse-ring">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="spin-icon">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+        </div>
+        <div class="live-anim-text">
+          <strong id="liveStatusTitle">Analyzing Statutory Law & IRD Records</strong>
+          <span id="liveStatusDetail">Searching 363 amendment chunks, cross-referencing valid time intervals...</span>
+        </div>
+        <div class="wave-dots" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+
       <div id="progressSteps" class="progress-steps"></div>
     </section>
 
@@ -1069,6 +1207,12 @@ function updateProgress(event) {
   $('#progressPercent').textContent = `${event.percent || 0}%`;
   $('#progressBar').style.width = `${event.percent || 0}%`;
   $('#progressDetail').textContent = event.detail || '';
+  
+  const liveTitle = $('#liveStatusTitle');
+  const liveDetail = $('#liveStatusDetail');
+  if (liveTitle) liveTitle.textContent = event.label || 'Analyzing Legal Evidence';
+  if (liveDetail) liveDetail.textContent = event.detail || 'Cross-referencing statutory intervals and IRD rules...';
+
   document.querySelectorAll('.progress-step').forEach(el => {
     const n = Number(el.dataset.step);
     el.classList.toggle('done', n < (event.step || 0));
@@ -1085,6 +1229,12 @@ function showProgress() {
   $('#progressPercent').textContent = '0%';
   $('#progressBar').style.width = '0%';
   $('#progressDetail').textContent = 'Starting…';
+  const liveWidget = document.querySelector('.progress-live-animation');
+  if (liveWidget) liveWidget.style.display = 'flex';
+  const liveTitle = $('#liveStatusTitle');
+  const liveDetail = $('#liveStatusDetail');
+  if (liveTitle) liveTitle.textContent = 'Initializing AI Research Engines';
+  if (liveDetail) liveDetail.textContent = 'Searching statutory corpus and amendment registers...';
   $('#progressSteps').innerHTML = STEPS.map((label, i) => `<div class="progress-step" data-step="${i + 1}"><span class="step-indicator">${i + 1}</span><span>${escapeHtml(label)}</span></div>`).join('');
 }
 
@@ -1263,8 +1413,18 @@ $('#queryForm').addEventListener('submit', async event => {
     if (!result) throw new Error('No result was returned.');
   } catch (error) {
     console.error('Search request failed:', error);
-    $('#progressTitle').textContent = 'Could not complete the request';
-    $('#progressDetail').textContent = error.message || 'Please try again.';
+    $('#progressTitle').textContent = 'Request could not be completed';
+    $('#progressPercent').textContent = '⚠️';
+    $('#progressDetail').innerHTML = `
+      <div style="color: #b91c1c; font-weight: 600; margin-bottom: 8px;">
+        ${escapeHtml(error.message || 'The network connection was interrupted or timed out.')}
+      </div>
+      <button type="button" class="secondary-button" onclick="$('#queryForm').requestSubmit()" style="margin-top: 6px;">
+        ↻ Retry search
+      </button>
+    `;
+    const liveWidget = document.querySelector('.progress-live-animation');
+    if (liveWidget) liveWidget.style.display = 'none';
   } finally {
     button.disabled = false;
     button.querySelector('span').textContent = 'Search legal sources';

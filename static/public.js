@@ -134,6 +134,12 @@ function updateProgress(event) {
   $('#progressPercent').textContent = `${event.percent || 0}%`;
   $('#progressBar').style.width = `${event.percent || 0}%`;
   $('#progressDetail').textContent = event.detail || '';
+  
+  const liveTitle = $('#liveStatusTitle');
+  const liveDetail = $('#liveStatusDetail');
+  if (liveTitle) liveTitle.textContent = event.label || 'Analyzing Legal Evidence';
+  if (liveDetail) liveDetail.textContent = event.detail || 'Cross-referencing statutory intervals and IRD rules...';
+
   document.querySelectorAll('.progress-step').forEach(el => {
     const n = Number(el.dataset.step);
     el.classList.toggle('done', n < (event.step || 0));
@@ -150,6 +156,12 @@ function showProgress() {
   $('#progressPercent').textContent = '0%';
   $('#progressBar').style.width = '0%';
   $('#progressDetail').textContent = 'Starting…';
+  const liveWidget = document.querySelector('.progress-live-animation');
+  if (liveWidget) liveWidget.style.display = 'flex';
+  const liveTitle = $('#liveStatusTitle');
+  const liveDetail = $('#liveStatusDetail');
+  if (liveTitle) liveTitle.textContent = 'Initializing AI Research Engines';
+  if (liveDetail) liveDetail.textContent = 'Searching statutory corpus and amendment registers...';
   $('#progressSteps').innerHTML = STEPS.map((label, i) => `<div class="progress-step" data-step="${i + 1}"><span class="step-indicator">${i + 1}</span><span>${escapeHtml(label)}</span></div>`).join('');
 }
 
@@ -328,8 +340,18 @@ $('#queryForm').addEventListener('submit', async event => {
     if (!result) throw new Error('No result was returned.');
   } catch (error) {
     console.error('Search request failed:', error);
-    $('#progressTitle').textContent = 'Could not complete the request';
-    $('#progressDetail').textContent = error.message || 'Please try again.';
+    $('#progressTitle').textContent = 'Request could not be completed';
+    $('#progressPercent').textContent = '⚠️';
+    $('#progressDetail').innerHTML = `
+      <div style="color: #b91c1c; font-weight: 600; margin-bottom: 8px;">
+        ${escapeHtml(error.message || 'The network connection was interrupted or timed out.')}
+      </div>
+      <button type="button" class="secondary-button" onclick="$('#queryForm').requestSubmit()" style="margin-top: 6px;">
+        ↻ Retry search
+      </button>
+    `;
+    const liveWidget = document.querySelector('.progress-live-animation');
+    if (liveWidget) liveWidget.style.display = 'none';
   } finally {
     button.disabled = false;
     button.querySelector('span').textContent = 'Search legal sources';

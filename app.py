@@ -417,7 +417,13 @@ def generate_openrouter_answer(question, legal_date, system_id, evidence, tax_pe
     api_key = os.environ.get('OPENROUTER_API_KEY', '').strip()
     if not api_key:
         return None
-    model = os.environ.get('OPENROUTER_MODEL', 'qwen/qwen-2.5-7b-instruct').strip()
+    preferred_model = os.environ.get('OPENROUTER_MODEL', 'qwen/qwen-2.5-7b-instruct').strip()
+    
+    # Fast, proven models on OpenRouter
+    candidate_models = [preferred_model]
+    for fallback in ['meta-llama/llama-3.1-8b-instruct', 'qwen/qwen-2.5-7b-instruct']:
+        if fallback not in candidate_models:
+            candidate_models.append(fallback)
     
     context_parts = []
     for idx, e in enumerate(evidence, 1):
@@ -451,48 +457,54 @@ def generate_openrouter_answer(question, legal_date, system_id, evidence, tax_pe
     )
     
     import urllib.request
-    payload = {
-        'model': model,
-        'messages': [
-            {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': user_prompt}
-        ],
-        'temperature': 0.1,
-        'max_tokens': 512
-    }
-    timeout = float(os.environ.get('RAG_API_TIMEOUT', '60'))
+    import urllib.error
+    
+    timeout = min(float(os.environ.get('RAG_API_TIMEOUT', '25')), 25.0)
     headers = {
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'http://127.0.0.1:5001',
-        'X-Title': 'Tax Temporal Research Assistant'
+        'HTTP-Referer': 'https://income-tax-sahayaka.vercel.app',
+        'X-Title': 'Income Tax Sahayaka'
     }
-    req = urllib.request.Request(
-        'https://openrouter.ai/api/v1/chat/completions',
-        data=json.dumps(payload).encode('utf-8'),
-        headers=headers,
-        method='POST'
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
-            return data['choices'][0]['message']['content'].strip()
-    except Exception as e:
-        if model != 'openrouter/free':
+
+    last_error = None
+    for model in candidate_models:
+        payload = {
+            'model': model,
+            'messages': [
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': user_prompt}
+            ],
+            'temperature': 0.1,
+            'max_tokens': 380
+        }
+        req = urllib.request.Request(
+            'https://openrouter.ai/api/v1/chat/completions',
+            data=json.dumps(payload).encode('utf-8'),
+            headers=headers,
+            method='POST'
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                choices = data.get('choices') or []
+                if choices and choices[0].get('message', {}).get('content'):
+                    return choices[0]['message']['content'].strip()
+        except urllib.error.HTTPError as he:
+            err_msg = f"HTTP {he.code}"
             try:
-                payload['model'] = 'openrouter/free'
-                req_fb = urllib.request.Request(
-                    'https://openrouter.ai/api/v1/chat/completions',
-                    data=json.dumps(payload).encode('utf-8'),
-                    headers=headers,
-                    method='POST'
-                )
-                with urllib.request.urlopen(req_fb, timeout=timeout) as resp:
-                    data = json.loads(resp.read().decode('utf-8'))
-                    return data['choices'][0]['message']['content'].strip()
+                err_msg += f": {he.read().decode('utf-8')[:120]}"
             except Exception:
                 pass
-        raise
+            last_error = err_msg
+            continue
+        except Exception as e:
+            last_error = str(e)
+            continue
+
+    if last_error:
+        raise RuntimeError(last_error)
+    return None
 
 
 @app.errorhandler(404)
@@ -593,23 +605,40 @@ def api_query_stream():
                         try:
                             m_name=os.environ.get('OPENROUTER_MODEL','qwen/qwen-2.5-7b-instruct')
                             yield make_sse({'type':'progress','step':5,'total':6,'percent':78,'label':'Generating live answers with LLM','detail':f'Querying {m_name} for {len(results)} system(s) in parallel...'})
+                            live_err_details = []
                             def _fetch_sys_answer(item):
                                 sid = item['system_id']
                                 ev = item['evidence']
-                                ans = generate_openrouter_answer(question, legal_date, sid, ev, tax_period)
+                                ans = None
+                                try:
+                                    ans = generate_openrouter_answer(question, legal_date, sid, ev, tax_period)
+                                except Exception as ex:
+                                    live_err_details.append(f"{sid}: {str(ex)}")
                                 return {'system_id': sid, 'system_name': item['system_name'], 'evidence': ev, 'answer': ans, 'archived': False}
 
                             with ThreadPoolExecutor(max_workers=min(len(results), 3)) as pool:
                                 live_systems = list(pool.map(_fetch_sys_answer, results))
-                            live={'systems':live_systems}
+
+                            has_any_answer = any(bool(s.get('answer')) for s in live_systems)
+                            if has_any_answer:
+                                live = {'systems': live_systems}
+                            else:
+                                live = None
+                                if live_err_details:
+                                    live_error = "; ".join(live_err_details)
                         except Exception as ex:
-                            live_error=str(ex)
-                            live=None
+                            live_error = str(ex)
+                            live = None
                     if live:
-                        notice_text=f"Live response generated via OpenRouter ({os.environ.get('OPENROUTER_MODEL','qwen/qwen-2.5-7b-instruct')}). Verify citations against official sources; this research prototype is not a substitute for professional tax advice." if os.environ.get('OPENROUTER_API_KEY','').strip() and not os.environ.get('RAG_API_URL','').strip() else 'Live backend response. Verify citations against official sources; this research prototype is not a substitute for professional tax advice.'
-                        result={'mode':'live_backend','question_id':None,'question_en':question,'target_tax_period':legal_date,'legal_date_entered':legal_date,'systems':live['systems'],'notice':notice_text}
+                        notice_text = f"Live response generated via OpenRouter ({os.environ.get('OPENROUTER_MODEL','qwen/qwen-2.5-7b-instruct')}). Verify citations against official sources; this research prototype is not a substitute for professional tax advice." if os.environ.get('OPENROUTER_API_KEY','').strip() and not os.environ.get('RAG_API_URL','').strip() else 'Live backend response. Verify citations against official sources; this research prototype is not a substitute for professional tax advice.'
+                        result = {'mode':'live_backend','question_id':None,'question_en':question,'target_tax_period':legal_date,'legal_date_entered':legal_date,'systems':live['systems'],'notice':notice_text}
                     else:
-                        result={'mode':'local_evidence_preview','question_id':None,'question_en':question,'target_tax_period':legal_date,'legal_date_entered':legal_date,'systems':results,'notice':'No archived answer matched this question. The app has performed a local evidence search only; it has not generated a legal answer. The configured live RAG backend is not connected or did not respond. Treat these passages as research leads, not legal advice.','backend_error':live_error}
+                        notice_text = 'No archived answer matched this question. The app has performed a local evidence search only; it has not generated a legal answer.'
+                        if live_error:
+                            notice_text += f' (Live LLM status: {live_error})'
+                        else:
+                            notice_text += ' The configured live RAG backend is not connected or did not respond. Treat these passages as research leads, not legal advice.'
+                        result = {'mode':'local_evidence_preview','question_id':None,'question_en':question,'target_tax_period':legal_date,'legal_date_entered':legal_date,'systems':results,'notice':notice_text,'backend_error':live_error}
                     yield make_sse({'type':'progress','step':5,'total':6,'percent':88,'label':'Preparing evidence and limitations','detail':'Checking source metadata and preparing the results panel.'})
                 db.execute('INSERT INTO query_logs(created_at,question,legal_date,mode,result_mode,success) VALUES(?,?,?,?,?,1)',(now_iso(),question,legal_date,mode,result['mode']))
                 db.commit()
