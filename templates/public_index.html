@@ -32,6 +32,34 @@
       <form id="queryForm">
         <label for="questionInput">Tax-law question <span class="required">*</span></label>
         <textarea id="questionInput" rows="4" maxlength="3000" placeholder="e.g. What personal relief applied for the 2022/2023 year of assessment?" required></textarea>
+        <div class="suggestions-container">
+          <div class="suggestions-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span>Suggested research questions (උදාහරණ ප්‍රශ්න):</span>
+          </div>
+          <div class="suggestion-chips" role="group" aria-label="Suggested tax research questions">
+            <button type="button" class="suggestion-chip" data-question="How did the 2021 amendment change the personal-relief rules, and which dates applied to the different relief amounts?" data-date="2021-04-01">
+              <span class="chip-tag">2021 Amendment</span>
+              <span class="chip-text">How did the 2021 amendment change the personal-relief rules, and which dates applied to the different relief amounts?</span>
+            </button>
+            <button type="button" class="suggestion-chip" data-question="How did the 2022 amendment change the relief under item (f) of paragraph 2 of the Fifth Schedule?" data-date="2023-01-01">
+              <span class="chip-tag">Fifth Schedule</span>
+              <span class="chip-text">How did the 2022 amendment change the relief under item (f) of paragraph 2 of the Fifth Schedule?</span>
+            </button>
+            <button type="button" class="suggestion-chip" data-question="Under the payment restriction introduced in 2023, what transaction threshold triggers section 10(2A)(a)?" data-date="2024-03-31">
+              <span class="chip-tag">Section 10(2A)</span>
+              <span class="chip-text">Under the payment restriction introduced in 2023, what transaction threshold triggers section 10(2A)(a)?</span>
+            </button>
+            <button type="button" class="suggestion-chip" data-question="For the 2024/2025 year of assessment, how is tax calculated on an eligible terminal benefit of Rs. 25,000,000 under the concessionary schedule?" data-date="2024-04-01">
+              <span class="chip-tag">Y/A 2024/2025</span>
+              <span class="chip-text">For the 2024/2025 year of assessment, how is tax calculated on an eligible terminal benefit of Rs. 25,000,000 under the concessionary schedule?</span>
+            </button>
+            <button type="button" class="suggestion-chip" data-question="As at 31 March 2025, what statutory provision supports the applicable personal-relief rule, and what official source confirms it?" data-date="2025-03-31">
+              <span class="chip-tag">As of 2025</span>
+              <span class="chip-text">As at 31 March 2025, what statutory provision supports the applicable personal-relief rule, and what official source confirms it?</span>
+            </button>
+          </div>
+        </div>
         <div class="field-row">
           <div class="field-group"><label for="legalDate">Law applicable as of</label><input id="legalDate" type="date" value="2025-03-31"><small>The date guides temporal filtering. It does not rerun saved benchmark answers.</small></div>
           <div class="field-group"><label for="systemMode">Compare RAG approaches</label><select id="systemMode"><option value="compare" selected>Compare all three systems</option><option value="C_AMENDMENT_AWARE_TEMPORAL_RAG">Amendment-Aware Temporal RAG</option><option value="A_CONVENTIONAL_RAG">Conventional RAG</option><option value="B_BASIC_TIME_FILTERED_RAG">Basic Time-Filtered RAG</option></select><small>Choose one system or compare all three side by side.</small></div>

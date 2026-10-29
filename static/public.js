@@ -311,6 +311,28 @@ $('#clearResults').addEventListener('click', () => {
   $('#progressPanel').hidden = true;
   $('#resultsContent').innerHTML = '';
   $('#questionInput').value = '';
+  document.querySelectorAll('.suggestion-chip').forEach(c => c.classList.remove('active'));
   $('#questionInput').focus();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+document.querySelectorAll('.suggestion-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const question = chip.getAttribute('data-question');
+    const date = chip.getAttribute('data-date');
+    if (question) {
+      $('#questionInput').value = question;
+      if (date && $('#legalDate')) {
+        $('#legalDate').value = date;
+      }
+      document.querySelectorAll('.suggestion-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      $('#questionInput').focus();
+      // Smooth visual feedback
+      $('#questionInput').style.borderColor = 'var(--blue2)';
+      setTimeout(() => {
+        $('#questionInput').style.borderColor = '';
+      }, 700);
+    }
+  });
 });
