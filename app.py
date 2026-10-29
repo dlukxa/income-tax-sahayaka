@@ -37,7 +37,7 @@ else:
     INSTANCE_DIR.mkdir(exist_ok=True)
     DB_PATH = Path(os.environ.get('TAX_RESEARCH_DB', INSTANCE_DIR / 'research_app.sqlite3'))
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=str(BASE_DIR / 'templates'), static_folder=str(BASE_DIR / 'static'))
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'local-prototype-secret-change-before-deployment')
 app.config['MAX_CONTENT_LENGTH'] = 12 * 1024 * 1024
 app.config['JSON_SORT_KEYS'] = False

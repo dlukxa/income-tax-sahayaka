@@ -10,5 +10,7 @@ if parent_dir not in sys.path:
 from app import app
 
 # Vercel entrypoint
+handler = app
+
 if __name__ == '__main__':
     app.run()
