@@ -163,22 +163,43 @@ async function readEvents(response, onEvent) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let finished = false;
+
   function dispatch(chunk) {
-    const line = chunk.split('\n').find(part => part.startsWith('data:'));
-    if (!line) return;
-    try { onEvent(JSON.parse(line.slice(5).trim())); } catch (err) { console.warn('Could not parse progress event', err); }
-  }
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let boundary;
-    while ((boundary = buffer.indexOf('\n\n')) >= 0) {
-      dispatch(buffer.slice(0, boundary));
-      buffer = buffer.slice(boundary + 2);
+    const lines = chunk.split('\n');
+    for (const line of lines) {
+      if (line.startsWith('data:')) {
+        try {
+          const parsed = JSON.parse(line.slice(5).trim());
+          onEvent(parsed);
+          if (parsed.type === 'result' || parsed.type === 'error') {
+            finished = true;
+          }
+        } catch (err) {
+          console.warn('Could not parse progress event', err);
+        }
+      }
     }
   }
-  if (buffer.trim()) dispatch(buffer);
+
+  try {
+    while (!finished) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let boundary;
+      while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+        dispatch(buffer.slice(0, boundary));
+        buffer = buffer.slice(boundary + 2);
+        if (finished) break;
+      }
+    }
+    if (!finished && buffer.trim()) {
+      dispatch(buffer);
+    }
+  } finally {
+    try { await reader.cancel(); } catch (_) {}
+  }
 }
 
 function renderEvidence(evidence) {
@@ -200,70 +221,76 @@ function renderEvidence(evidence) {
 }
 
 function renderResult(result) {
-  $('#resultsPanel').hidden = false;
-  $('#progressPanel').hidden = true;
-  $('#resultNotice').textContent = result.notice || '';
-  $('#resultNotice').className = 'result-notice' + (result.mode === 'local_evidence_preview' ? ' warning' : '');
-  if (result.mode === 'local_evidence_preview') {
-    $('#resultNotice').textContent = `${result.notice || ''} This is an evidence-only preview, not an AI-generated tax answer.`;
+  try {
+    $('#resultsPanel').hidden = false;
+    $('#progressPanel').hidden = true;
+    $('#resultNotice').textContent = result.notice || '';
+    $('#resultNotice').className = 'result-notice' + (result.mode === 'local_evidence_preview' ? ' warning' : '');
+    if (result.mode === 'local_evidence_preview') {
+      $('#resultNotice').textContent = `${result.notice || ''} This is an evidence-only preview, not an AI-generated tax answer.`;
+    }
+
+    const rawSystems = result.systems || [];
+    // Ensure the systems are ALWAYS ordered strictly A -> B -> C
+    const systems = [...rawSystems].sort((a, b) => {
+      const ia = SYSTEM_ORDER.indexOf(a.system_id);
+      const ib = SYSTEM_ORDER.indexOf(b.system_id);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+
+    const resultsGrid = $('#resultsContent');
+    resultsGrid.className = 'results-grid' + (systems.length ? ` count-${systems.length}` : '');
+
+    resultsGrid.innerHTML = systems.map(system => {
+      const cfg = SYSTEM_CONFIG[system.system_id] || {
+        badge: system.system_id || 'System',
+        pillClass: 'pill-a',
+        cardClass: 'sys-a',
+        title: system.system_name || 'RAG System',
+        subtag: 'Tax research system'
+      };
+      const status = system.archived
+        ? 'Saved controlled-run output'
+        : (result.mode === 'live_backend' ? 'Live generated response' : 'Evidence preview only');
+
+      const answer = system.answer
+        ? formatMarkdown(system.answer)
+        : '<p class="answer-p muted">No generated answer is available for this question. Review the retrieved evidence below.</p>';
+
+      const evidenceList = system.evidence || [];
+
+      return `
+        <article class="system-card ${cfg.cardClass}">
+          <header class="system-card-head">
+            <div class="system-badge-row">
+              <span class="system-pill ${cfg.pillClass}">${escapeHtml(cfg.badge)}</span>
+              <span class="answer-status">${escapeHtml(status)}</span>
+            </div>
+            <h3>${escapeHtml(cfg.title)}</h3>
+            <div class="system-subtag">${escapeHtml(cfg.subtag)}</div>
+          </header>
+          <div class="system-body">
+            <div class="system-answer-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+              LEGAL ANSWER
+            </div>
+            <div class="system-answer">${answer}</div>
+          </div>
+          <div class="system-meta">
+            <span>${system.archived ? 'Archived experiment' : 'Runtime inference'}</span>
+            <span>${evidenceList.length} source record${evidenceList.length === 1 ? '' : 's'}</span>
+          </div>
+          ${renderEvidence(evidenceList)}
+        </article>
+      `;
+    }).join('');
+
+    $('#resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    console.error('Error rendering result:', err);
+    $('#progressTitle').textContent = 'Error displaying results';
+    $('#progressDetail').textContent = err.message || 'An unexpected rendering error occurred.';
   }
-
-  const rawSystems = result.systems || [];
-  // Ensure the systems are ALWAYS ordered strictly A -> B -> C
-  const systems = [...rawSystems].sort((a, b) => {
-    const ia = SYSTEM_ORDER.indexOf(a.system_id);
-    const ib = SYSTEM_ORDER.indexOf(b.system_id);
-    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-  });
-
-  const resultsGrid = $('#resultsContent');
-  resultsGrid.className = 'results-grid' + (systems.length ? ` count-${systems.length}` : '');
-
-  resultsGrid.innerHTML = systems.map(system => {
-    const cfg = SYSTEM_CONFIG[system.system_id] || {
-      badge: system.system_id || 'System',
-      pillClass: 'pill-a',
-      cardClass: 'sys-a',
-      title: system.system_name || 'RAG System',
-      subtag: 'Tax research system'
-    };
-    const status = system.archived
-      ? 'Saved controlled-run output'
-      : (result.mode === 'live_backend' ? 'Live generated response' : 'Evidence preview only');
-
-    const answer = system.answer
-      ? formatMarkdown(system.answer)
-      : '<p class="answer-p muted">No generated answer is available for this question. Review the retrieved evidence below.</p>';
-
-    const evidenceList = system.evidence || [];
-
-    return `
-      <article class="system-card ${cfg.cardClass}">
-        <header class="system-card-head">
-          <div class="system-badge-row">
-            <span class="system-pill ${cfg.pillClass}">${escapeHtml(cfg.badge)}</span>
-            <span class="answer-status">${escapeHtml(status)}</span>
-          </div>
-          <h3>${escapeHtml(cfg.title)}</h3>
-          <div class="system-subtag">${escapeHtml(cfg.subtag)}</div>
-        </header>
-        <div class="system-body">
-          <div class="system-answer-label">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            LEGAL ANSWER
-          </div>
-          <div class="system-answer">${answer}</div>
-        </div>
-        <div class="system-meta">
-          <span>${system.archived ? 'Archived experiment' : 'Runtime inference'}</span>
-          <span>${evidenceList.length} source record${evidenceList.length === 1 ? '' : 's'}</span>
-        </div>
-        ${renderEvidence(evidenceList)}
-      </article>
-    `;
-  }).join('');
-
-  $('#resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 $('#queryForm').addEventListener('submit', async event => {
@@ -291,13 +318,16 @@ $('#queryForm').addEventListener('submit', async event => {
     let streamError = '';
     await readEvents(response, data => {
       if (data.type === 'progress') updateProgress(data);
-      if (data.type === 'result') result = data.result;
+      if (data.type === 'result') {
+        result = data.result;
+        renderResult(result);
+      }
       if (data.type === 'error') streamError = data.message || 'The request failed.';
     });
     if (streamError) throw new Error(streamError);
     if (!result) throw new Error('No result was returned.');
-    renderResult(result);
   } catch (error) {
+    console.error('Search request failed:', error);
     $('#progressTitle').textContent = 'Could not complete the request';
     $('#progressDetail').textContent = error.message || 'Please try again.';
   } finally {

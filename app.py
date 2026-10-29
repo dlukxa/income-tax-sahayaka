@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from functools import wraps
 from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, render_template, request, jsonify, session, Response, send_file, send_from_directory, abort
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -591,13 +592,15 @@ def api_query_stream():
                     elif os.environ.get('OPENROUTER_API_KEY','').strip():
                         try:
                             m_name=os.environ.get('OPENROUTER_MODEL','qwen/qwen-2.5-7b-instruct')
-                            yield make_sse({'type':'progress','step':5,'total':6,'percent':78,'label':'Generating live answers with LLM','detail':f'Querying {m_name} using retrieved statutory evidence...'})
-                            live_systems=[]
-                            for item in results:
-                                sid=item['system_id']
-                                ev=item['evidence']
-                                ans=generate_openrouter_answer(question,legal_date,sid,ev,tax_period)
-                                live_systems.append({'system_id':sid,'system_name':item['system_name'],'evidence':ev,'answer':ans,'archived':False})
+                            yield make_sse({'type':'progress','step':5,'total':6,'percent':78,'label':'Generating live answers with LLM','detail':f'Querying {m_name} for {len(results)} system(s) in parallel...'})
+                            def _fetch_sys_answer(item):
+                                sid = item['system_id']
+                                ev = item['evidence']
+                                ans = generate_openrouter_answer(question, legal_date, sid, ev, tax_period)
+                                return {'system_id': sid, 'system_name': item['system_name'], 'evidence': ev, 'answer': ans, 'archived': False}
+
+                            with ThreadPoolExecutor(max_workers=min(len(results), 3)) as pool:
+                                live_systems = list(pool.map(_fetch_sys_answer, results))
                             live={'systems':live_systems}
                         except Exception as ex:
                             live_error=str(ex)
@@ -614,7 +617,7 @@ def api_query_stream():
             yield make_sse({'type':'result','result':result})
         except Exception as e:
             yield make_sse({'type':'error','message':'The request could not be completed. '+str(e)})
-    return Response(generate(),mimetype='text/event-stream',headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no','Connection':'keep-alive'})
+    return Response(generate(),mimetype='text/event-stream',headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no','Connection':'close'})
 
 @app.post('/api/login')
 def api_login():
