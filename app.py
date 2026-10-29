@@ -501,6 +501,17 @@ def page_not_found(e):
     return render_template('public_index.html'), 404
 
 
+@app.errorhandler(405)
+def method_not_allowed(e):
+    return jsonify({
+        'error': '405 Method Not Allowed',
+        'request_path': request.path,
+        'path_info': request.environ.get('PATH_INFO'),
+        'query_string': request.environ.get('QUERY_STRING'),
+        'method': request.method
+    }), 405
+
+
 @app.route('/')
 @app.route('/api/index')
 def index():
@@ -522,8 +533,10 @@ def api_status():
         backend=bool(os.environ.get('RAG_API_URL','').strip() or os.environ.get('OPENROUTER_API_KEY','').strip())
         return jsonify({'ready':True,'questions':qn,'answers':an,'retrieval_records':rn,'live_backend_configured':backend,'run_id':RUN_ID,'legal_accuracy_status':'Pending expert adjudication','prototype_mode':not backend})
 
-@app.post('/api/query/stream')
+@app.route('/api/query/stream', methods=['POST', 'GET'])
 def api_query_stream():
+    if request.method == 'GET':
+        return jsonify({'status': 'stream_endpoint_ready', 'method': 'POST'}), 200
     payload=request.get_json(silent=True) or {}
     question=(payload.get('question') or '').strip()
     legal_date=(payload.get('legal_date') or '').strip()
