@@ -496,16 +496,13 @@ def generate_openrouter_answer(question, legal_date, system_id, evidence, tax_pe
 
 @app.errorhandler(404)
 def page_not_found(e):
-    return jsonify({
-        'error': 'not_found',
-        'request_path': request.path,
-        'path_info': request.environ.get('PATH_INFO'),
-        'headers': dict(request.headers),
-        'environ_keys': {k: str(request.environ[k]) for k in request.environ if any(x in k for x in ['PATH', 'URI', 'URL', 'ROUTE', 'MATCH', 'ORIG'])}
-    }), 404
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Not found', 'path': request.path}), 404
+    return render_template('public_index.html'), 404
 
 
 @app.route('/')
+@app.route('/api/index')
 def index():
     return render_template('public_index.html')
 
