@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from functools import wraps
 from contextlib import contextmanager
-from flask import Flask, render_template, request, jsonify, session, Response, send_file, abort
+from flask import Flask, render_template, request, jsonify, session, Response, send_file, send_from_directory, abort
 
 BASE_DIR = Path(__file__).resolve().parent
 ENV_FILE = BASE_DIR / '.env'
@@ -516,6 +516,11 @@ def method_not_allowed(e):
 @app.route('/api/index')
 def index():
     return render_template('public_index.html')
+
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(str(BASE_DIR / 'static'), filename)
 
 @app.get('/research-console')
 def research_console():
