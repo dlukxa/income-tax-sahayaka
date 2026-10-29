@@ -46,6 +46,14 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', '0') == '1'
 
+@app.after_request
+def add_no_cache_headers(response):
+    if response.mimetype in ('text/html', 'application/javascript', 'text/css'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
+
 SYSTEM_NAMES = {
     'A_CONVENTIONAL_RAG': 'Conventional RAG',
     'B_BASIC_TIME_FILTERED_RAG': 'Basic Time-Filtered RAG',
@@ -337,6 +345,20 @@ def make_sse(payload):
     return 'data: ' + json.dumps(payload, ensure_ascii=False) + '\n\n'
 
 
+def compact_evidence(ev_list):
+    compact = []
+    for e in ev_list or []:
+        compact.append({
+            'title': e.get('title') or 'Legal source',
+            'source_document': e.get('source_document') or e.get('record_type') or '',
+            'record_type': e.get('record_type') or '',
+            'valid_time_start': e.get('valid_time_start') or '',
+            'valid_time_end': e.get('valid_time_end') or '',
+            'chunk_text': (e.get('chunk_text') or e.get('retrieval_text') or '')[:750]
+        })
+    return compact
+
+
 def answer_archive_for_question(db, question):
     target=norm_text(question)
     if not target: return None
@@ -349,7 +371,7 @@ def answer_archive_for_question(db, question):
     result=[]
     for a in answers:
         top=db.execute('SELECT * FROM retrieval_items WHERE question_id=? AND system_id=? ORDER BY parent_rank',(hit['question_id'],a['system_id'])).fetchall()
-        result.append({'system_id':a['system_id'],'system_name':SYSTEM_NAMES.get(a['system_id'],a['system_name']),'answer':a['generated_answer'],'archived':True,'latency_seconds':a['latency_seconds'],'top5_parent_ids':a['top5_parent_ids'],'context_sha256':a['context_sha256'],'evidence':[dict(t) for t in top]})
+        result.append({'system_id':a['system_id'],'system_name':SYSTEM_NAMES.get(a['system_id'],a['system_name']),'answer':a['generated_answer'],'archived':True,'latency_seconds':a['latency_seconds'],'top5_parent_ids':a['top5_parent_ids'],'context_sha256':a['context_sha256'],'evidence':compact_evidence([dict(t) for t in top])})
     return {'question_id':hit['question_id'],'question_en':hit['question_en'],'target_tax_period':qrow['target_tax_period'],'systems':result}
 
 
@@ -591,20 +613,23 @@ def api_query_stream():
                     for sid in selected:
                         evidence=search_local_corpus(db,question,legal_date,sid)
                         results.append({'system_id':sid,'system_name':SYSTEM_NAMES[sid],'evidence':evidence,'answer':None,'archived':False})
-                    yield make_sse({'type':'progress','step':4,'total':6,'percent':65,'label':'Checking temporal metadata','detail':'Applying only explicit interval exclusions. Records without verified intervals are flagged as uncertain.'})
+                    yield make_sse({'type':'progress','step':4,'total':6,'percent':60,'label':'Checking temporal rules','detail':'Verifying amendment effective dates and statutory intervals.'})
                     live=None
                     live_error=''
                     if os.environ.get('RAG_API_URL','').strip():
                         try:
-                            yield make_sse({'type':'progress','step':5,'total':6,'percent':78,'label':'Connecting to the configured RAG backend','detail':'Sending the question and legal date to the configured research adapter.'})
+                            yield make_sse({'type':'progress','step':5,'total':6,'percent':80,'label':'Connecting to configured RAG backend','detail':'Sending the question and legal date to the configured research adapter.'})
                             live=try_live_backend(question,legal_date,selected,tax_period)
+                            if live and live.get('systems'):
+                                for s in live['systems']:
+                                    s['evidence'] = compact_evidence(s.get('evidence'))
                         except Exception as ex:
                             live_error=str(ex)
                             live=None
                     elif os.environ.get('OPENROUTER_API_KEY','').strip():
                         try:
                             m_name=os.environ.get('OPENROUTER_MODEL','qwen/qwen-2.5-7b-instruct')
-                            yield make_sse({'type':'progress','step':5,'total':6,'percent':78,'label':'Generating live answers with LLM','detail':f'Querying {m_name} for {len(results)} system(s) in parallel...'})
+                            yield make_sse({'type':'progress','step':5,'total':6,'percent':80,'label':'AI generating legal answers','detail':f'Querying {m_name} for {len(results)} system(s) in parallel...'})
                             live_err_details = []
                             def _fetch_sys_answer(item):
                                 sid = item['system_id']
@@ -614,7 +639,7 @@ def api_query_stream():
                                     ans = generate_openrouter_answer(question, legal_date, sid, ev, tax_period)
                                 except Exception as ex:
                                     live_err_details.append(f"{sid}: {str(ex)}")
-                                return {'system_id': sid, 'system_name': item['system_name'], 'evidence': ev, 'answer': ans, 'archived': False}
+                                return {'system_id': sid, 'system_name': item['system_name'], 'evidence': compact_evidence(ev), 'answer': ans, 'archived': False}
 
                             with ThreadPoolExecutor(max_workers=min(len(results), 3)) as pool:
                                 live_systems = list(pool.map(_fetch_sys_answer, results))
@@ -638,11 +663,11 @@ def api_query_stream():
                             notice_text += f' (Live LLM status: {live_error})'
                         else:
                             notice_text += ' The configured live RAG backend is not connected or did not respond. Treat these passages as research leads, not legal advice.'
-                        result = {'mode':'local_evidence_preview','question_id':None,'question_en':question,'target_tax_period':legal_date,'legal_date_entered':legal_date,'systems':results,'notice':notice_text,'backend_error':live_error}
-                    yield make_sse({'type':'progress','step':5,'total':6,'percent':88,'label':'Preparing evidence and limitations','detail':'Checking source metadata and preparing the results panel.'})
+                        compact_results = [{'system_id': s['system_id'], 'system_name': s['system_name'], 'evidence': compact_evidence(s['evidence']), 'answer': s['answer'], 'archived': False} for s in results]
+                        result = {'mode':'local_evidence_preview','question_id':None,'question_en':question,'target_tax_period':legal_date,'legal_date_entered':legal_date,'systems':compact_results,'notice':notice_text,'backend_error':live_error}
                 db.execute('INSERT INTO query_logs(created_at,question,legal_date,mode,result_mode,success) VALUES(?,?,?,?,?,1)',(now_iso(),question,legal_date,mode,result['mode']))
                 db.commit()
-            yield make_sse({'type':'progress','step':6,'total':6,'percent':100,'label':'Ready','detail':'Results and their evaluation status are ready to inspect.'})
+            yield make_sse({'type':'progress','step':6,'total':6,'percent':100,'label':'Displaying results','detail':'Rendering comparison cards and source citations.'})
             yield make_sse({'type':'result','result':result})
         except Exception as e:
             yield make_sse({'type':'error','message':'The request could not be completed. '+str(e)})

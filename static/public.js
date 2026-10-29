@@ -30,7 +30,7 @@ const SYSTEM_CONFIG = {
   }
 };
 
-const STEPS = ['Validate question', 'Check research corpus', 'Retrieve legal evidence', 'Check temporal metadata', 'Prepare response', 'Display results'];
+const STEPS = ['Validate question', 'Check research corpus', 'Retrieve legal evidence', 'Check temporal rules', 'AI answer generation', 'Display results'];
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -332,6 +332,7 @@ $('#queryForm').addEventListener('submit', async event => {
       if (data.type === 'progress') updateProgress(data);
       if (data.type === 'result') {
         result = data.result;
+        updateProgress({ step: 6, total: 6, percent: 100, label: 'Displaying results', detail: 'Results are ready.' });
         renderResult(result);
       }
       if (data.type === 'error') streamError = data.message || 'The request failed.';
