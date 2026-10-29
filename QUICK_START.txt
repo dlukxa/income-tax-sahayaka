@@ -1,0 +1,34 @@
+TAX RESEARCH ASSISTANT — QUICK START
+
+macOS / Linux
+1. Extract the ZIP.
+2. Open the extracted folder.
+3. Double-click run_mac.command OR run these commands in Terminal:
+   python3 -m venv .venv
+   source .venv/bin/activate
+   python -m pip install -r requirements.txt
+   cp .env.example .env
+   # Edit .env and replace the example secrets.
+   set -a; source .env; set +a
+   python app.py
+4. Open http://127.0.0.1:5000 for the user-facing question app.
+5. Internal research/reviewer console: http://127.0.0.1:5000/research-console (requires reviewer/admin access code for protected actions).
+
+Windows
+1. Extract the ZIP.
+2. Run run_windows.bat from the extracted folder.
+3. Open http://127.0.0.1:5000
+
+DEFAULT LOCAL CODES (override before sharing):
+Research reviewer: review-demo-change-me
+Admin: admin-demo-change-me
+
+EXPERT EVALUATION IS SEPARATE
+- The default web app page is for users to ask tax-law questions and compare available system outputs/evidence.
+- The post-use expert survey is not embedded here. Use the separate Tax Expert Evaluation Form package and give the expert that independent survey link after the app trial.
+- Experts should try the web app first, then use the separate survey link to rate their overall experience with the three systems and leave comments.
+- For questions outside the saved 200-question set, actual answer generation requires the live backend configuration (RAG_API_URL); otherwise the app clearly labels the result as an evidence-only preview.
+
+NOTE
+- Exact benchmark questions show saved controlled-run outputs.
+- This is a research prototype, not professional tax advice or a production-secure application.

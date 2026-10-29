@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Source-grounded question answering prototype for Sri Lankan personal income tax research.">
+  <title>Income Tax Sahayaka | ආදායම් බදු සහායක</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='public.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Income Tax Sahayaka home">
+      <img class="brand-logo" src="{{ url_for('static', filename='logo.png') }}" alt="Income Tax Sahayaka Logo" width="46" height="46">
+      <span class="brand-text">
+        <strong>Income Tax Sahayaka</strong>
+        <small>ආදායම් බදු සහායක · Sri Lanka</small>
+      </span>
+    </a>
+    <span class="prototype-label"><span></span> Legal-Tech AI Prototype</span>
+  </header>
+  <main class="page-wrap">
+    <section class="hero">
+      <div class="eyebrow">INCOME TAX SAHAYAKA · SOURCE-GROUNDED RESEARCH</div>
+      <h1>Find the law that<br><em>applies to your date.</em></h1>
+      <p class="lead">Ask a Sri Lankan income-tax question, compare available RAG approaches, and inspect the statutory evidence behind each result.</p>
+      <div class="disclaimer"><strong>Research use only.</strong> Income Tax Sahayaka is a source-grounded research prototype and not professional tax advice. Verify statutory provisions, amendments, effective dates, and citations against official sources before relying on an answer.</div>
+    </section>
+
+    <section class="panel" aria-labelledby="questionHeading">
+      <div class="panel-heading"><div><span class="section-label">YOUR QUESTION</span><h2 id="questionHeading">What do you need to know?</h2></div><span class="language-pill">English questions</span></div>
+      <form id="queryForm">
+        <label for="questionInput">Tax-law question <span class="required">*</span></label>
+        <textarea id="questionInput" rows="4" maxlength="3000" placeholder="e.g. What personal relief applied for the 2022/2023 year of assessment?" required></textarea>
+        <div class="field-row">
+          <div class="field-group"><label for="legalDate">Law applicable as of</label><input id="legalDate" type="date" value="2025-03-31"><small>The date guides temporal filtering. It does not rerun saved benchmark answers.</small></div>
+          <div class="field-group"><label for="systemMode">Compare RAG approaches</label><select id="systemMode"><option value="compare" selected>Compare all three systems</option><option value="C_AMENDMENT_AWARE_TEMPORAL_RAG">Amendment-Aware Temporal RAG</option><option value="A_CONVENTIONAL_RAG">Conventional RAG</option><option value="B_BASIC_TIME_FILTERED_RAG">Basic Time-Filtered RAG</option></select><small>Choose one system or compare all three side by side.</small></div>
+        </div>
+        <button id="submitQuery" class="primary-button" type="submit"><span>Search legal sources</span><span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+
+    <section id="progressPanel" class="panel progress-panel" hidden aria-live="polite">
+      <div class="progress-head"><div><span class="section-label">REQUEST STATUS</span><h2 id="progressTitle">Preparing your search</h2></div><strong id="progressPercent">0%</strong></div>
+      <div class="progress-track"><span id="progressBar"></span></div>
+      <p id="progressDetail">Validating your question.</p>
+      <div id="progressSteps" class="progress-steps"></div>
+    </section>
+
+    <section id="resultsPanel" class="results-section" hidden>
+      <div class="results-head"><div><span class="section-label">RESULTS</span><h2>Answers and legal evidence</h2></div><button id="clearResults" class="secondary-button" type="button">New question</button></div>
+      <div id="resultNotice" class="result-notice"></div>
+      <div id="resultsContent" class="results-grid"></div>
+    </section>
+    <footer><p><strong>Income Tax Sahayaka (ආදායම් බදු සහායක)</strong> · Source-grounded tax-law research prototype based on the Inland Revenue Act, No. 24 of 2017 and amendments. Always verify citations against official IRD publications.</p></footer>
+  </main>
+  <script src="{{ url_for('static', filename='public.js') }}"></script>
+</body>
+</html>

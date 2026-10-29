@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Research prototype for source-grounded Sri Lankan personal income tax question answering." />
+  <title>Income Tax Sahayaka | Research Console</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#ask" aria-label="Income Tax Sahayaka home">
+        <img class="brand-logo" src="{{ url_for('static', filename='logo.png') }}" alt="Income Tax Sahayaka Logo" width="40" height="40" />
+        <span class="brand-copy"><strong>Income Tax Sahayaka</strong><small>Research & Evidence Workspace</small></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <button class="nav-link active" data-view="askView">Ask a question</button>
+        <button class="nav-link" data-view="reviewView">Expert workspace</button>
+        <button class="nav-link" data-view="dashboardView">Evaluation</button>
+      </nav>
+      <div class="topbar-actions">
+        <span class="prototype-pill"><i></i> Research prototype</span>
+        <button id="loginButton" class="button button-quiet button-small">Reviewer sign in</button>
+        <button id="logoutButton" class="button button-quiet button-small hidden">Sign out</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="askView" class="app-view active-view">
+        <section class="hero-grid">
+          <div class="hero-copy">
+            <div class="eyebrow"><span class="eyebrow-line"></span> SRI LANKA · PERSONAL INCOME TAX</div>
+            <h1>Find the law that<br /><em>applies to your date.</em></h1>
+            <p class="hero-lede">Ask a tax-law question and inspect the legal sources behind the result. For research use only; not a substitute for professional tax advice.</p>
+            <div class="hero-tags"><span><b>01</b> Ask</span><span><b>02</b> Retrieve</span><span><b>03</b> Verify</span></div>
+          </div>
+          <aside class="hero-note">
+            <div class="note-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5.5c0 4.6-3.1 7.7-8 9.5-4.9-1.8-8-4.9-8-9.5V6l8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></div>
+            <p class="note-title">Evidence before certainty</p>
+            <p class="note-body">A relevant passage is not enough. Check its section, source, and legal period before relying on it.</p>
+            <div class="note-foot"><span class="status-dot amber"></span> Expert legal validation pending</div>
+          </aside>
+        </section>
+
+        <section class="query-card" aria-labelledby="queryHeading">
+          <div class="card-heading">
+            <div><p class="section-kicker">TAX LAW SEARCH</p><h2 id="queryHeading">What do you need to know?</h2></div>
+            <span class="micro-label">English questions</span>
+          </div>
+          <form id="queryForm">
+            <label for="questionInput" class="field-label">Your question</label>
+            <textarea id="questionInput" rows="3" maxlength="3000" placeholder="e.g. What personal relief applied for the 2022/2023 year of assessment?" required></textarea>
+            <div class="form-row">
+              <div class="field-block">
+                <label for="legalDate" class="field-label">Law applicable as of</label>
+                <input id="legalDate" type="date" value="2025-03-31" />
+                <small class="field-help">The date guides temporal filtering; it does not change archived experiment answers.</small>
+              </div>
+              <div class="field-block system-field">
+                <label for="systemMode" class="field-label">Compare systems</label>
+                <select id="systemMode">
+                  <option value="C_AMENDMENT_AWARE_TEMPORAL_RAG" selected>Amendment-Aware Temporal RAG</option>
+                  <option value="compare">Compare all three approaches</option>
+                  <option value="A_CONVENTIONAL_RAG">Conventional RAG</option>
+                  <option value="B_BASIC_TIME_FILTERED_RAG">Basic Time-Filtered RAG</option>
+                </select>
+                <small class="field-help">A/B/C use the same controlled question set in the saved experiment.</small>
+              </div>
+            </div>
+            <div class="query-actions"><button id="submitQuery" class="button button-primary" type="submit"><span>Search legal sources</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M12 5l7 7-7 7"/></svg></button><span class="form-assurance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5.5c0 4.6-3.1 7.7-8 9.5-4.9-1.8-8-4.9-8-9.5V6l8-3Z"/><path d="M8 12h8"/></svg> Sources and uncertainty are shown, not hidden.</span></div>
+          </form>
+        </section>
+
+        <section id="progressPanel" class="progress-panel hidden" aria-live="polite">
+          <div class="progress-heading"><div><p class="section-kicker">REQUEST STATUS</p><h2 id="progressTitle">Preparing your search</h2></div><span id="progressPercent" class="progress-percent">0%</span></div>
+          <div class="progress-track"><span id="progressBar"></span></div>
+          <div id="progressSteps" class="progress-steps"></div>
+          <p id="progressDetail" class="progress-detail">Validating your question.</p>
+        </section>
+
+        <section id="resultsPanel" class="results-panel hidden">
+          <div class="results-heading"><div><p class="section-kicker">RESULTS</p><h2>Evidence and answers</h2></div><button id="clearResults" class="button button-quiet button-small">New question</button></div>
+          <div id="resultNotice" class="notice-box"></div>
+          <div id="resultsContent"></div>
+        </section>
+
+        <section class="stats-strip">
+          <div><span class="stat-number" id="statQuestions">200</span><span class="stat-label">candidate questions</span></div>
+          <div><span class="stat-number" id="statAnswers">600</span><span class="stat-label">saved answers</span></div>
+          <div><span class="stat-number" id="statEvidence">3,000</span><span class="stat-label">Top-5 records</span></div>
+          <div class="stats-caption"><span class="status-dot amber"></span><span>Answer accuracy is pending expert adjudication.</span></div>
+        </section>
+      </section>
+
+      <section id="reviewView" class="app-view hidden">
+        <div class="workspace-header">
+          <div><p class="eyebrow"><span class="eyebrow-line"></span> RESEARCH VALIDATION</p><h1>Expert review<br /><em>in one place.</em></h1><p class="hero-lede">Review legal questions, provide the correct statutory answer and source, and save your assessment. Model-generated answers are hidden during gold-answer review.</p></div>
+          <div class="workspace-status"><span class="status-dot amber"></span><div><strong id="reviewerIdentity">Reviewer not signed in</strong><small id="reviewerRole">Sign in to access assigned review tasks.</small></div></div>
+        </div>
+        <div id="loginGate" class="login-gate">
+          <div class="gate-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3M12 14v3"/></svg></div>
+          <div class="gate-copy"><h2>Sign in to the review workspace</h2><p>Use your assigned reviewer ID and research access code. Administrator actions require a separate code.</p></div>
+          <button class="button button-primary" id="openLoginFromGate">Sign in</button>
+        </div>
+        <div id="reviewWorkspace" class="hidden">
+          <div class="workspace-toolbar">
+            <div class="reviewer-meta"><span class="reviewer-avatar" id="reviewerAvatar">R</span><div><strong id="activeReviewer">Reviewer</strong><small>Submissions are timestamped and saved locally.</small></div></div>
+            <div class="slot-control"><label for="reviewSlot">Independent review slot</label><select id="reviewSlot"><option value="1">Reviewer 1</option><option value="2">Reviewer 2</option></select></div>
+          </div>
+          <div class="review-layout">
+            <aside class="review-sidebar">
+              <p class="sidebar-label">REVIEW QUEUES</p>
+              <button class="review-nav active" data-review-mode="answer"><span class="review-nav-icon">01</span><span><strong>Answer review</strong><small>600 answers · 1,200 ratings</small></span></button>
+              <button class="review-nav" data-review-mode="gold"><span class="review-nav-icon">02</span><span><strong>Gold labels</strong><small>200 legal questions</small></span></button>
+              <button class="review-nav" data-review-mode="retrieval"><span class="review-nav-icon">03</span><span><strong>Source validity</strong><small>3,000 Top-5 records</small></span></button>
+              <button class="review-nav" data-review-mode="prompt"><span class="review-nav-icon">04</span><span><strong>Answer style</strong><small>350 prompt outputs</small></span></button>
+              <div class="sidebar-divider"></div>
+              <p class="sidebar-label">ADMIN ONLY</p>
+              <button class="review-nav admin-nav hidden" data-review-mode="adjudicate-answer"><span class="review-nav-icon">05</span><span><strong>Adjudicate answers</strong><small>Resolve reviewer differences</small></span></button>
+              <button class="review-nav admin-nav hidden" data-review-mode="adjudicate-retrieval"><span class="review-nav-icon">06</span><span><strong>Adjudicate sources</strong><small>Final source/version labels</small></span></button>
+              <button class="review-nav admin-nav hidden" data-review-mode="exports"><span class="review-nav-icon">07</span><span><strong>Exports</strong><small>CSV and manifest bundle</small></span></button>
+            </aside>
+            <section class="review-main">
+              <div class="queue-heading"><div><p class="section-kicker" id="queueKicker">INDEPENDENT ASSESSMENT</p><h2 id="queueTitle">Answer review</h2><p id="queueDescription">Assess the answer against the supplied context. Do not infer correctness from fluency.</p></div><div class="queue-progress"><strong id="queueProgressNumber">—</strong><small id="queueProgressLabel">queue completion</small></div></div>
+              <div id="reviewQueueContent" class="review-queue-content"><div class="empty-state"><div class="loader-ring"></div><p>Loading review workspace…</p></div></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section id="dashboardView" class="app-view hidden">
+        <div class="dashboard-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> EVALUATION OVERVIEW</p><h1>Measure what<br /><em>has been verified.</em></h1><p class="hero-lede">Operational results are available now. Legal accuracy appears only after gold labels and adjudications are complete.</p></div><div class="status-card"><span class="status-dot amber"></span><div><strong id="evaluationStatus">Pending expert adjudication</strong><small>Run: 20261027T092018Z</small></div></div></div>
+        <div class="metrics-grid" id="metricsGrid"></div>
+        <section class="dashboard-section"><div class="section-header"><div><p class="section-kicker">REVIEW PROGRESS</p><h2>Expert validation coverage</h2></div><p>Completion counts are not accuracy scores.</p></div><div id="reviewProgressBars" class="progress-bar-list"></div></section>
+        <section class="dashboard-section"><div class="section-header"><div><p class="section-kicker">SAVED CONTROLLED RUN</p><h2>Operational results</h2></div><span class="micro-label">Not legal accuracy</span></div><div id="operationalTable" class="table-wrap"></div></section>
+        <div class="dashboard-callout"><div class="callout-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5.5c0 4.6-3.1 7.7-8 9.5-4.9-1.8-8-4.9-8-9.5V6l8-3Z"/><path d="M12 8v4m0 4h.01"/></svg></div><div><strong>Why accuracy may be blank</strong><p>Gold labels are currently unapproved. The dashboard will not calculate a final legal accuracy score until 200 gold questions are approved and all 600 answer adjudications are completed.</p></div></div>
+      </section>
+    </main>
+    <footer class="footer"><span><strong>Income Tax Sahayaka (ආදායම් බදු සහායක)</strong> · Academic research prototype</span><span><a href="https://www.ird.gov.lk/en/publications/sitepages/acts.aspx?menuid=1601" target="_blank" rel="noopener">Official IRD Acts</a><span class="footer-sep">·</span> Not professional tax advice</span></footer>
+  </div>
+
+  <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <div class="modal-backdrop" data-close-modal="true"></div>
+    <div class="modal-card"><button class="modal-close" data-close-modal="true" aria-label="Close">×</button><p class="section-kicker">RESEARCH REVIEW ACCESS</p><h2 id="loginTitle">Welcome back</h2><p class="modal-lede">Choose the workspace assigned to you. Tax experts see only the legal-question form.</p>
+      <form id="loginForm"><label class="field-label" for="loginReviewerId">Reviewer ID</label><input id="loginReviewerId" autocomplete="username" placeholder="e.g. reviewer_01" required /><label class="field-label" for="loginRole">Workspace role</label><select id="loginRole"><option value="tax_expert">Tax expert / accountant — legal review only</option><option value="reviewer">Research reviewer</option><option value="admin">Research administrator</option></select><label class="field-label" for="loginCode">Access code</label><input id="loginCode" type="password" autocomplete="current-password" required placeholder="Enter access code" /><p id="loginError" class="inline-error hidden"></p><button class="button button-primary button-full" type="submit">Open workspace</button></form>
+      <p class="modal-footnote">Local prototype access only. Set separate reviewer and administrator access codes before sharing or deploying this application.</p>
+    </div>
+  </div>
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
