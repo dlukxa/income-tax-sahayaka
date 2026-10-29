@@ -500,9 +500,8 @@ def page_not_found(e):
         'error': 'not_found',
         'request_path': request.path,
         'path_info': request.environ.get('PATH_INFO'),
-        'x_forwarded_uri': request.headers.get('X-Forwarded-Uri'),
-        'x_matched_path': request.headers.get('X-Matched-Path'),
-        'url': request.url
+        'headers': dict(request.headers),
+        'environ_keys': {k: str(request.environ[k]) for k in request.environ if any(x in k for x in ['PATH', 'URI', 'URL', 'ROUTE', 'MATCH', 'ORIG'])}
     }), 404
 
 
